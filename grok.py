@@ -1,5 +1,5 @@
 import discord
-import discord.ext import commands
+from discord.ext import commands
 import os
 import asyncio
 from openai import AsyncOpenAI
