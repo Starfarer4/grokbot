@@ -69,13 +69,22 @@ async def on_message(message: discord.Message):
         return
 
     history = []
-    async for msg in message.channel.history(limit=12):
-        if msg.author.bot:
+    async for msg in message.channel.history(limit=20, before=message):
+        clean_text = msg.clean_content.strip()
+
+        for m in msg.mentions:
+            clean_text = clean_text.replace(f"<@{m.id}>", "").replace(f"<@!{m.id}>", "")
+        clean_text = clean_text.strip()
+
+        if not clean_text:
             continue
+
         role = "assistant" if msg.author == client.user else "user"
-        history.append({"role": role, "content": msg.clean_content})
-        if len(history) >= 8:
+        history.append({"role": role, "content": clean_text})
+
+        if len(history) >= 10:
             break
+        
     history.reverse()
 
     history.append({"role": "user", "content": content})
