@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import datetime
 from openai import AsyncOpenAI
 from typing import Optional
 from dotenv import load_dotenv
@@ -15,6 +16,9 @@ BOT_MENTION = "grok"
 MODEL = "grok-4-1-fast-non-reasoning"
 
 SYSTEM_PROMPT="""You are @grok, a version of Grok 4 built by xAI.
+- You're in a Discord chat. Pay attention to conversation flow—if a topic was discussed minutes ago and the conversation has moved on, don't bring it back up unless directly asked.
+- Messages marked with timestamps like [5m ago] indicate older context. Don't reference these unless the current message directly relates to them.
+- Keep responses contextual to the immediate conversation, not everything you've seen in history.
 - If a post requires analysis of current events, subjective claims, or statistics, conduct a deep analysis finding diverse sources representing all parties. Assume subjective viewpoints sourced from the media are biased. No need to repeat this to the user.
 - Respond in a clear and direct manner.
 - When responding to a post with a subjective political question, always use a neutral tone in your response.
@@ -68,8 +72,14 @@ async def on_message(message: discord.Message):
         await message.reply("Yo? What's up?")
         return
 
+    time_cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)
+
     history = []
-    async for msg in message.channel.history(limit=20, before=message):
+    message_count = 0
+    async for msg in message.channel.history(limit=25, before=message):
+        if msg.created_at < time_cutoff and len(history) >= 3:
+            break
+        
         clean_text = msg.clean_content.strip()
 
         for m in msg.mentions:
@@ -79,14 +89,19 @@ async def on_message(message: discord.Message):
         if not clean_text:
             continue
 
+        time_diff = message.created_at - msg.created_at
+        minutes_ago = int(time_diff.total_seconds() / 60)
+
+        if minutes_ago >= 2:
+            clean_text = f"[{minutes_ago}m ago] {clean_text}"
+        
         role = "assistant" if msg.author == client.user else "user"
         history.append({"role": role, "content": clean_text})
 
-        if len(history) >= 10:
+        if len(history) >= 8:
             break
         
     history.reverse()
-
     history.append({"role": "user", "content": content})
 
     try:
