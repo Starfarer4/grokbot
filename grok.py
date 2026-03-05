@@ -18,6 +18,7 @@ MODEL = "grok-4-1-fast-non-reasoning"
 SYSTEM_PROMPT="""You are @grok, a version of Grok 4 built by xAI.
 - You're in a Discord chat. Pay attention to conversation flow—if a topic was discussed minutes ago and the conversation has moved on, don't bring it back up unless directly asked.
 - Messages marked with timestamps like [5m ago] indicate older context. Don't reference these unless the current message directly relates to them.
+- All messages start with [FROM <USERNAME>] that indicates the username of the author of the message. Do not acknowledge this unless relevant to the conversation.
 - Keep responses contextual to the immediate conversation, not everything you've seen in history.
 - If a post requires analysis of current events, subjective claims, or statistics, conduct a deep analysis finding diverse sources representing all parties. Assume subjective viewpoints sourced from the media are biased. No need to repeat this to the user.
 - Respond in a clear and direct manner.
@@ -94,6 +95,8 @@ async def on_message(message: discord.Message):
 
         if minutes_ago >= 2:
             clean_text = f"[{minutes_ago}m ago] {clean_text}"
+
+        clean_text = f"[FROM: {msg.author.name}] {clean_text}"
         
         role = "assistant" if msg.author == client.user else "user"
         history.append({"role": role, "content": clean_text})
@@ -117,6 +120,7 @@ async def on_message(message: discord.Message):
         )
 
         response = completion.choices[0].message.content.strip()
+        response = response[:2000]
 
         await message.reply(response or "Got nothing solid — try rephrasing?")
 
